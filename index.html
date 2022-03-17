@@ -1,11 +1,13 @@
 <!doctype html>
 <head>
   <meta charset="UTF-8">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/instantsearch.css@7.4.5/themes/satellite-min.css" integrity="sha256-TehzF/2QvNKhGQrrNpoOb2Ck4iGZ1J/DI4pkd2oUsBc=" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/instantsearch.css@7.4.5/themes/satellite-min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@algolia/autocomplete-theme-classic@1.5.0/dist/theme.min.css" />
 </head>
 <body>
   <header>
     <div id="search-box"></div>
+    <div id="autocomplete"></div>
   </header>
 
   <main>
@@ -16,13 +18,170 @@
   <script type="text/html" id="hit-template">
     <div class="hit">
       <p class="hit-name">
-        {{#helpers.highlight}}{ "attribute": "name" }{{/helpers.highlight}}
+        {{#helpers.highlight}}{ "attribute": "name" }{{/helpers.highlight}}<br />
         {{#helpers.highlight}}{ "attribute": "location" }{{/helpers.highlight}}
       </p>
     </div>
   </script>
 
-  <script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.5.1/dist/algoliasearch-lite.umd.js" integrity="sha256-EXPXz4W6pQgfYY3yTpnDa3OH8/EPn16ciVsPQ/ypsjk=" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.8.3/dist/instantsearch.production.min.js" integrity="sha256-LAGhRRdtVoD6RLo2qDQsU2mp+XVSciKRC8XPOBWmofM=" crossorigin="anonymous"></script>
-  <script src="app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/algoliasearch@4.11.0/dist/algoliasearch.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/instantsearch.js@4.33.2/dist/instantsearch.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@algolia/autocomplete-js@1.5.0/dist/umd/index.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@algolia/autocomplete-plugin-query-suggestions@1.5.0/dist/umd/index.production.min.js"></script>
+  <script>
+    const { autocomplete } = window['@algolia/autocomplete-js'];
+    const { createQuerySuggestionsPlugin } = window['@algolia/autocomplete-plugin-query-suggestions'];
+    const { getAlgoliaResults } = window['@algolia/autocomplete-js'];
+
+    const searchClient = algoliasearch(
+      'I98ERVUJ34',
+      'c43b258d6b10e132df6239366cb268eb' // search only API key, not admin API key
+    );
+
+    const querySuggestionsPlugin = createQuerySuggestionsPlugin({
+      searchClient,
+      indexName: 'concerts_query_suggestions',
+      getSearchParams({ state }) {
+        return { hitsPerPage: state.query ? 5 : 10 };
+      },
+      transformSource({ source }) {
+    function createUrl(item) {
+      const urlParams = new URLSearchParams();
+      urlParams.set('query', item.query);
+      if (item.__autocomplete_qsCategory) {
+        urlParams.set('category', item.__autocomplete_qsCategory);
+      }
+
+      return `./search.html?${urlParams.toString()}`;
+    }
+
+    return {
+      ...source,
+      getItemUrl({ item }) {
+        return createUrl(item);
+      },
+      templates: {
+        item(params) {
+          const { item, createElement } = params;
+
+          return createElement(
+            'a',
+            {
+              className: 'aa-ItemLink',
+              href: createUrl(item),
+            },
+            source.templates.item(params)
+          );
+        },
+      },
+    };
+  },
+});
+
+
+// https://www.algolia.com/doc/ui-libraries/autocomplete/guides/including-multiple-result-types/
+const predefinedItems = [
+  {
+    label: 'Red Hot Chili Peppers',
+    url: 'https://redhotchilipeppers.com/',
+  },
+  {
+    label: 'Foo Fighters',
+    url: 'https://www.foofighters.com/',
+  },
+];
+
+const predefinedItemsPlugin = {
+  getSources() {
+    return [
+      {
+        sourceId: 'predefinedItemsPlugin',
+        getItems({ query }) {
+          if (!query) {
+            return predefinedItems;
+          }
+          return predefinedItems.filter((item) =>
+            item.label.toLowerCase().includes(query.toLowerCase())
+          );
+        },
+        getItemUrl({ item }) {
+          return item.url;
+        },
+        templates: {
+          header({ items, createElement, Fragment }) {
+            if (items.length === 0) {
+              return null;
+            }
+
+            return createElement(
+              Fragment,
+              null,
+              createElement(
+                'span',
+                { className: 'aa-SourceHeaderTitle' },
+                'Links'
+              ),
+              createElement('div', { className: 'aa-SourceHeaderLine' })
+            );
+          },
+          item({ item, createElement }) {
+            return createElement(
+              'a',
+              {
+                className: 'aa-ItemLink',
+                href: item.url,
+              },
+              createElement(
+                'div',
+                {
+                  className: 'aa-ItemIcon aa-ItemIcon--noBorder',
+                },
+                createElement(
+                  'svg',
+                  {
+                    width: 18,
+                    height: 18,
+                    viewBox: '0 0 24 24',
+                    fill: 'none',
+                    stroke: 'currentColor',
+                    strokeWidth: 2,
+                    strokeLinecap: 'round',
+                    strokeLinejoin: 'round',
+                  },
+                  createElement('path', {
+                    d: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6',
+                  }),
+                  createElement('polyline', { points: '15 3 21 3 21 9' }),
+                  createElement('line', { x1: 10, y1: 14, x2: 21, y2: 3 })
+                )
+              ),
+              createElement(
+                'div',
+                { className: 'aa-ItemContent' },
+                createElement(
+                  'div',
+                  { className: 'aa-ItemContentTitle' },
+                  item.label
+                )
+              )
+            );
+          },
+        },
+      },
+    ];
+  },
+};
+
+
+autocomplete({
+  container: '#autocomplete',
+  plugins: [
+    predefinedItemsPlugin,
+    querySuggestionsPlugin
+  ],
+  placeholder: 'Type any artist or venue',
+  autoFocus: true,
+  openOnFocus: true,
+});
+  </script>
 </body>
